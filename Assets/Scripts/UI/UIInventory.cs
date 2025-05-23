@@ -209,6 +209,8 @@ public class UIInventory : MonoBehaviour
                         condition.Heal(selectedItem.item.consumables[i].value); break;
                     case ConsumableType.Stamina:
                         condition.HealS(selectedItem.item.consumables[i].value); break;
+                    case ConsumableType.DoubleJump:
+                        EventBus.Publish("OnDoubleJump"); break;
                 }
             }
             RemoveSelctedItem();

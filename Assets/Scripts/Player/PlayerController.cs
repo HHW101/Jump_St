@@ -1,15 +1,18 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO.Pipes;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 public class PlayerController : BaseController
 {
     [Header("Look")]
     public Transform cameraContainer;
     public float minXLook;
     public float maxXLook;
-
+    public int MaxJump = 1;
+    private int curJump = 1;
     private float camCurXRot;
     public float lookSensitivity;
     public Action inventory;
@@ -24,6 +27,7 @@ public class PlayerController : BaseController
     private InputAction lookAction;
     private InputAction dashAction;
     private InputAction invenAction;
+    private InputAction attackAction;
 
     protected override void Awake()
     {
@@ -34,6 +38,7 @@ public class PlayerController : BaseController
         lookAction = inputActionMap.FindAction("Look");
         jumpAction = inputActionMap.FindAction("Jump");
         dashAction = inputActionMap.FindAction("Dash");
+        attackAction = inputActionMap.FindAction("Attack");
         invenAction = inputActionMap.FindAction("Inventory");
         moveAction.performed += OnMove;
         moveAction.canceled += OnMove;
@@ -45,9 +50,43 @@ public class PlayerController : BaseController
         dashAction.started += OnDash;
         dashAction.canceled += OnDash;
         invenAction.started += OnInventoryButton;
+        attackAction.started += OnClimb;
+        attackAction.performed += OnClimb;
+        attackAction.canceled += OnClimb;
         EventBus.Subscribe("OnSpeedUp", OnSpeedUp);
         EventBus.Subscribe("OnSpeedReset", OnResetSpeed);
+        EventBus.Subscribe("OnDoubleJump", OnDoubleJump);
+        EventBus.Subscribe("OnShoot", OnShoot);
 
+
+    }
+    public void OnShoot(object a)
+    {
+        Debug.Log("¹ß»ý");
+        _rigidbody.velocity = Vector3.zero; 
+        _rigidbody.AddForce((Vector3)a, ForceMode.Impulse);
+    }
+    public void OnClimb(InputAction.CallbackContext ctx)
+    {
+        if (ctx.phase == InputActionPhase.Canceled)
+        {
+            _rigidbody.useGravity = true;
+        }
+        else 
+        {
+            Debug.Log("¿Ã¶ó°¨");
+            RaycastHit hit;
+            LayerMask mask = LayerMask.GetMask("Wall");
+            if (Physics.Raycast(transform.position, transform.forward, out hit, 1f, mask))
+            {
+                _rigidbody.useGravity = false;
+                _rigidbody.velocity = new Vector3(0, moveSpeed/2, 0);
+            }
+            else
+                _rigidbody.useGravity = true;
+        }
+       
+        
     }
     public void OnInventoryButton(InputAction.CallbackContext callbackContext)
     {
@@ -63,12 +102,17 @@ public class PlayerController : BaseController
     }
     public void OnJump(InputAction.CallbackContext ctx)
     {
-
+        if(MaxJump>curJump)
+        {
+            Jump(jumpPower);
+            curJump++;
+        }
         if (IsGrounded())
         {
             Debug.Log("Á¡ÇÁ");
             Jump(jumpPower);
-            }
+            curJump++;
+        }
     }
     public void Jump(float power)
     {
@@ -98,6 +142,16 @@ public class PlayerController : BaseController
         }
             
     }
+    public void OnDoubleJump(object a)
+    {
+        StartCoroutine(DJMode());
+    }
+    IEnumerator DJMode()
+    {
+        MaxJump = 2;
+        yield return new WaitForSeconds(20);
+        MaxJump = 1;
+    }
     public void OnSpeedUp(object a)
     {
         nowSpeed += (int)a;
@@ -124,7 +178,10 @@ public class PlayerController : BaseController
     }
     protected void LateUpdate()
     {
-      
+        if (IsGrounded())
+        {
+            curJump = 1;
+        }
         if (canLook)
         {
             CameraLook();
@@ -159,7 +216,7 @@ public class PlayerController : BaseController
                 return true;
             }
         }
-        Debug.Log("¶¥ ¾Æ´Ô");
+      
         return false;
     }
 }
